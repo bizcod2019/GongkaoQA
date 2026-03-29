@@ -117,6 +117,177 @@ body {
     color: white;
 }
 
+/* 开始页面按钮区域 */
+.start-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.start-buttons .btn-secondary {
+    margin-left: 0;
+}
+
+/* 保存状态提示 */
+.saved-state-info {
+    margin-top: 20px;
+    padding: 15px 20px;
+    background: #e8f5e9;
+    border-radius: 12px;
+    border-left: 4px solid #00b894;
+}
+
+.saved-state-info p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.saved-state-info span {
+    font-weight: bold;
+    color: #667eea;
+}
+
+/* 退出按钮 */
+.quiz-actions {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.btn-exit {
+    background: #f8f9fa;
+    color: #666;
+    border: 2px solid #e0e0e0;
+    padding: 10px 25px;
+    font-size: 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-exit:hover {
+    background: #e8f0fe;
+    border-color: #667eea;
+    color: #667eea;
+}
+
+/* 错题库按钮 */
+.btn-wrong-bank {
+    background: #fff5f5;
+    color: #e53e3e;
+    border: 2px solid #feb2b2;
+    padding: 16px 30px;
+    font-size: 16px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-wrong-bank:hover {
+    background: #fed7d7;
+    border-color: #fc8181;
+}
+
+/* 错题库提示 */
+.wrong-bank-hint {
+    margin-top: 15px;
+    padding: 10px 15px;
+    background: #fff5f5;
+    border-radius: 10px;
+    border-left: 4px solid #e53e3e;
+}
+
+.wrong-bank-hint p {
+    margin: 0;
+    font-size: 13px;
+    color: #c53030;
+}
+
+/* 错题库管理页面 */
+.wrong-bank-actions {
+    margin-left: auto;
+}
+
+.btn-danger {
+    background: #fff;
+    color: #e53e3e;
+    border: 2px solid #e53e3e;
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    background: #e53e3e;
+    color: #fff;
+}
+
+.wrong-bank-stats {
+    background: white;
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+}
+
+.wrong-bank-stats span {
+    font-weight: bold;
+    color: #e53e3e;
+}
+
+/* 错题库项目 */
+.wrong-bank-item {
+    position: relative;
+}
+
+.wrong-bank-item .wrong-question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn-remove {
+    background: #48bb78;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-remove:hover {
+    background: #38a169;
+}
+
+/* 空错题库提示 */
+.empty-bank {
+    background: white;
+    border-radius: 20px;
+    padding: 60px 40px;
+    text-align: center;
+}
+
+.empty-bank p:first-child {
+    font-size: 24px;
+    color: #48bb78;
+    margin-bottom: 15px;
+}
+
+.empty-bank p:last-child {
+    font-size: 16px;
+    color: #666;
+}
+
 /* 答题页面 */
 .quiz-header {
     background: white;
@@ -674,6 +845,60 @@ body {
     .btn-secondary {
         margin-left: 0;
         margin-top: 15px;
+    }
+
+    /* 开始页面按钮区域响应式 */
+    .start-buttons {
+        flex-direction: column;
+    }
+
+    .start-buttons .btn-primary,
+    .start-buttons .btn-secondary,
+    .start-buttons .btn-wrong-bank {
+        width: 100%;
+        margin: 5px 0;
+    }
+
+    /* 保存状态提示响应式 */
+    .saved-state-info {
+        padding: 12px 15px;
+    }
+
+    .saved-state-info p {
+        font-size: 13px;
+    }
+
+    /* 退出按钮响应式 */
+    .btn-exit {
+        padding: 8px 20px;
+        font-size: 13px;
+    }
+
+    /* 错题库按钮响应式 */
+    .btn-wrong-bank {
+        padding: 14px 25px;
+        font-size: 15px;
+    }
+
+    /* 错题库管理页面响应式 */
+    .review-header {
+        flex-wrap: wrap;
+    }
+
+    .wrong-bank-actions {
+        margin-left: 0;
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    .wrong-bank-item .wrong-question-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .btn-remove {
+        width: 100%;
+        text-align: center;
     }
 }
 

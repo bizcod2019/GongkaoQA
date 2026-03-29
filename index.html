@@ -50,7 +50,23 @@
                     <p class="selector-hint">将随机抽取 <span id="selectedCount">30</span> 道题目开始答题</p>
                 </div>
                 
-                <button id="startBtn" class="btn-primary">开始答题</button>
+                <!-- 按钮区域 -->
+                <div class="start-buttons">
+                    <button id="startBtn" class="btn-primary">开始答题</button>
+                    <button id="continueBtn" class="btn-secondary hidden">继续答题</button>
+                    <button id="wrongBankBtn" class="btn-wrong-bank">📚 错题库 (<span id="wrongBankCount">0</span>)</button>
+                </div>
+                
+                <!-- 错题库提示 -->
+                <div id="wrongBankHint" class="wrong-bank-hint hidden">
+                    <p>💡 错题库中的题目会在答题时优先出现</p>
+                </div>
+                
+                <!-- 保存状态提示 -->
+                <div id="savedStateInfo" class="saved-state-info hidden">
+                    <p>📋 已保存进度：第 <span id="savedProgress">1</span>/<span id="savedTotal">30</span> 题</p>
+                    <p>✓ 正确：<span id="savedCorrect">0</span>  ✗ 错误：<span id="savedWrong">0</span></p>
+                </div>
             </div>
         </div>
 
@@ -66,6 +82,10 @@
                 </div>
                 <div class="progress-bar">
                     <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <!-- 退出按钮 -->
+                <div class="quiz-actions">
+                    <button id="exitAndSaveBtn" class="btn-exit" title="退出并保存进度">💾 退出并保存</button>
                 </div>
             </div>
 
@@ -125,13 +145,32 @@
             </div>
             <div id="wrongQuestionsContainer" class="wrong-questions-container"></div>
         </div>
+
+        <!-- 错题库管理页面 -->
+        <div id="wrongBankScreen" class="screen hidden">
+            <div class="review-header">
+                <button id="backToStartBtn" class="btn-back">← 返回首页</button>
+                <h2>📚 错题库管理</h2>
+                <div class="wrong-bank-actions">
+                    <button id="clearAllWrongBtn" class="btn-danger">清空错题库</button>
+                </div>
+            </div>
+            <div class="wrong-bank-stats">
+                <p>共 <span id="totalWrongCount">0</span> 道错题 | 错题会在答题时优先出现</p>
+            </div>
+            <div id="wrongBankContainer" class="wrong-questions-container"></div>
+        </div>
     </div>
 
     <!-- 引入题目数据 -->
     <script src="questions-data.js"></script>
     
     <script>
-        // 游戏状态
+        // ========== 常量定义 ==========
+        const STORAGE_KEY = 'quiz_saved_state'; // 本地存储键名
+        const WRONG_BANK_KEY = 'quiz_wrong_bank'; // 错题库存储键名
+
+        // ========== 游戏状态 ==========
         let selectedQuestionCount = 30; // 默认30题
         let currentQuestionIndex = 0;
         let correctCount = 0;
@@ -140,12 +179,17 @@
         let canAnswer = true;
         let questions = []; // 当前答题使用的题目
 
-        // DOM 元素
+        // ========== DOM 元素 ==========
         const startScreen = document.getElementById('startScreen');
         const quizScreen = document.getElementById('quizScreen');
         const resultScreen = document.getElementById('resultScreen');
         const reviewScreen = document.getElementById('reviewScreen');
+        const wrongBankScreen = document.getElementById('wrongBankScreen');
         const startBtn = document.getElementById('startBtn');
+        const continueBtn = document.getElementById('continueBtn');
+        const wrongBankBtn = document.getElementById('wrongBankBtn');
+        const backToStartBtn = document.getElementById('backToStartBtn');
+        const clearAllWrongBtn = document.getElementById('clearAllWrongBtn');
         const questionText = document.getElementById('questionText');
         const optionsContainer = document.getElementById('optionsContainer');
         const currentQuestionSpan = document.getElementById('currentQuestion');
@@ -158,11 +202,137 @@
         const feedbackText = document.getElementById('feedbackText');
         const nextBtn = document.getElementById('nextBtn');
         const celebrationContainer = document.getElementById('celebrationContainer');
+        const exitAndSaveBtn = document.getElementById('exitAndSaveBtn');
+        const savedStateInfo = document.getElementById('savedStateInfo');
 
-        // 题目数量选择器
+        // ========== 状态保存和加载功能 ==========
+        
+        // 保存当前状态到localStorage
+        function saveState() {
+            const state = {
+                questions: questions,
+                currentQuestionIndex: currentQuestionIndex,
+                correctCount: correctCount,
+                wrongCount: wrongCount,
+                wrongQuestions: wrongQuestions,
+                savedAt: new Date().toISOString()
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        // 从localStorage加载状态
+        function loadState() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    console.error('加载保存状态失败:', e);
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // 清除保存的状态
+        function clearState() {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+
+        // 检查是否有保存的状态并更新UI
+        function checkSavedState() {
+            const state = loadState();
+            if (state && state.questions && state.questions.length > 0) {
+                // 显示继续按钮和保存状态信息
+                continueBtn.classList.remove('hidden');
+                savedStateInfo.classList.remove('hidden');
+                
+                // 更新保存状态信息
+                document.getElementById('savedProgress').textContent = state.currentQuestionIndex + 1;
+                document.getElementById('savedTotal').textContent = state.questions.length;
+                document.getElementById('savedCorrect').textContent = state.correctCount;
+                document.getElementById('savedWrong').textContent = state.wrongCount;
+                
+                return true;
+            } else {
+                continueBtn.classList.add('hidden');
+                savedStateInfo.classList.add('hidden');
+                return false;
+            }
+        }
+
+        // ========== 错题库功能 ==========
+        
+        // 获取错题库
+        function getWrongBank() {
+            const saved = localStorage.getItem(WRONG_BANK_KEY);
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    console.error('加载错题库失败:', e);
+                    return [];
+                }
+            }
+            return [];
+        }
+
+        // 保存错题库
+        function saveWrongBank(bank) {
+            localStorage.setItem(WRONG_BANK_KEY, JSON.stringify(bank));
+            updateWrongBankCount();
+        }
+
+        // 添加错题到错题库（避免重复）
+        function addToWrongBank(question, userAnswer) {
+            const bank = getWrongBank();
+            // 使用题目内容作为唯一标识检查是否已存在
+            const exists = bank.some(q => q.question === question.question);
+            if (!exists) {
+                bank.push({
+                    ...question,
+                    userAnswer: userAnswer,
+                    addedAt: new Date().toISOString()
+                });
+                saveWrongBank(bank);
+            }
+        }
+
+        // 从错题库删除题目
+        function removeFromWrongBank(questionText) {
+            let bank = getWrongBank();
+            bank = bank.filter(q => q.question !== questionText);
+            saveWrongBank(bank);
+        }
+
+        // 清空错题库
+        function clearWrongBank() {
+            localStorage.removeItem(WRONG_BANK_KEY);
+            updateWrongBankCount();
+        }
+
+        // 更新错题库数量显示
+        function updateWrongBankCount() {
+            const bank = getWrongBank();
+            const count = bank.length;
+            document.getElementById('wrongBankCount').textContent = count;
+            
+            // 显示或隐藏错题提示
+            const hint = document.getElementById('wrongBankHint');
+            if (count > 0) {
+                hint.classList.remove('hidden');
+            } else {
+                hint.classList.add('hidden');
+            }
+            
+            return count;
+        }
+
+        // ========== 题目数量选择器 ==========
         const countOptions = document.querySelectorAll('.count-option');
         const selectedCountSpan = document.getElementById('selectedCount');
 
+        // 题目数量选择事件
         countOptions.forEach(option => {
             option.addEventListener('click', () => {
                 countOptions.forEach(opt => opt.classList.remove('active'));
@@ -172,14 +342,50 @@
             });
         });
 
-        // 随机抽取题目
+        // ========== 页面初始化 ==========
+        checkSavedState();
+        updateWrongBankCount();
+
+        // 随机抽取题目（错题优先策略）
         function getRandomQuestions(count) {
-            const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-            return shuffled.slice(0, count);
+            const wrongBank = getWrongBank();
+            const wrongQuestionTexts = new Set(wrongBank.map(q => q.question));
+            
+            // 分离错题和非错题
+            const wrongQuestionsPool = allQuestions.filter(q => wrongQuestionTexts.has(q.question));
+            const normalQuestionsPool = allQuestions.filter(q => !wrongQuestionTexts.has(q.question));
+            
+            // 计算错题抽取比例：错题库题目占30%-50%的比例
+            const wrongRatio = Math.min(0.5, Math.max(0.3, wrongQuestionsPool.length / count));
+            const wrongCount = Math.min(Math.floor(count * wrongRatio), wrongQuestionsPool.length);
+            const normalCount = count - wrongCount;
+            
+            // 随机打乱并抽取
+            const shuffledWrong = wrongQuestionsPool.sort(() => Math.random() - 0.5);
+            const shuffledNormal = normalQuestionsPool.sort(() => Math.random() - 0.5);
+            
+            // 合并并再次打乱
+            const selected = [
+                ...shuffledWrong.slice(0, wrongCount),
+                ...shuffledNormal.slice(0, normalCount)
+            ].sort(() => Math.random() - 0.5);
+            
+            // 如果题目不够，从剩余题目中补充
+            if (selected.length < count) {
+                const usedQuestions = new Set(selected.map(q => q.question));
+                const remaining = allQuestions.filter(q => !usedQuestions.has(q.question));
+                const shuffledRemaining = remaining.sort(() => Math.random() - 0.5);
+                selected.push(...shuffledRemaining.slice(0, count - selected.length));
+            }
+            
+            return selected;
         }
 
-        // 开始游戏
+        // 开始新游戏
         startBtn.addEventListener('click', () => {
+            // 清除之前保存的状态
+            clearState();
+            
             questions = getRandomQuestions(selectedQuestionCount);
             currentQuestionIndex = 0;
             correctCount = 0;
@@ -191,6 +397,41 @@
             startScreen.classList.add('hidden');
             quizScreen.classList.remove('hidden');
             loadQuestion();
+        });
+
+        // 继续游戏
+        continueBtn.addEventListener('click', () => {
+            const state = loadState();
+            if (state) {
+                questions = state.questions;
+                currentQuestionIndex = state.currentQuestionIndex;
+                correctCount = state.correctCount;
+                wrongCount = state.wrongCount;
+                wrongQuestions = state.wrongQuestions || [];
+                
+                correctCountSpan.textContent = correctCount;
+                wrongCountSpan.textContent = wrongCount;
+                
+                startScreen.classList.add('hidden');
+                quizScreen.classList.remove('hidden');
+                loadQuestion();
+            }
+        });
+
+        // 退出并保存
+        exitAndSaveBtn.addEventListener('click', () => {
+            // 只有在已经开始答题后才保存
+            if (questions.length > 0) {
+                saveState();
+            }
+            
+            // 返回开始页面
+            quizScreen.classList.add('hidden');
+            feedbackOverlay.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            
+            // 更新UI显示保存状态
+            checkSavedState();
         });
 
         // 加载题目
@@ -245,6 +486,8 @@
                 correctCount++;
                 correctCountSpan.textContent = correctCount;
                 showCorrectFeedback(question.explanation);
+                // 答对了，从错题库中移除（如果存在）
+                removeFromWrongBank(question.question);
             } else {
                 wrongCount++;
                 wrongCountSpan.textContent = wrongCount;
@@ -252,8 +495,13 @@
                     ...question,
                     userAnswer: selectedAnswer
                 });
+                // 添加到错题库
+                addToWrongBank(question, selectedAnswer);
                 showWrongFeedback(question, selectedAnswer);
             }
+            
+            // 自动保存状态
+            saveState();
         }
 
         // 显示正确反馈
@@ -337,7 +585,12 @@
 
             if (currentQuestionIndex < questions.length) {
                 loadQuestion();
+                // 保存当前进度
+                saveState();
             } else {
+                // 答题完成，清除保存状态
+                clearState();
+                checkSavedState();
                 showResults();
             }
         });
@@ -385,6 +638,10 @@
 
         // 重新开始 - 返回开始页面
         document.getElementById('restartBtn').addEventListener('click', () => {
+            // 清除保存状态
+            clearState();
+            checkSavedState();
+            
             resultScreen.classList.add('hidden');
             startScreen.classList.remove('hidden');
         });
@@ -426,6 +683,78 @@
                 container.appendChild(questionDiv);
             });
         }
+
+        // ========== 错题库管理页面功能 ==========
+        
+        // 打开错题库页面
+        wrongBankBtn.addEventListener('click', () => {
+            startScreen.classList.add('hidden');
+            wrongBankScreen.classList.remove('hidden');
+            showWrongBank();
+        });
+
+        // 返回首页
+        backToStartBtn.addEventListener('click', () => {
+            wrongBankScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            updateWrongBankCount();
+        });
+
+        // 清空错题库
+        clearAllWrongBtn.addEventListener('click', () => {
+            if (confirm('确定要清空所有错题吗？此操作不可恢复。')) {
+                clearWrongBank();
+                showWrongBank();
+            }
+        });
+
+        // 显示错题库内容
+        function showWrongBank() {
+            const bank = getWrongBank();
+            const container = document.getElementById('wrongBankContainer');
+            const totalCount = document.getElementById('totalWrongCount');
+            
+            totalCount.textContent = bank.length;
+
+            if (bank.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-bank">
+                        <p>🎉 太棒了！错题库是空的</p>
+                        <p>继续加油，保持学习状态！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            bank.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'wrong-question-item wrong-bank-item';
+                questionDiv.innerHTML = `
+                    <div class="wrong-question-header">
+                        <span class="question-number">第 ${index + 1} 题</span>
+                        <button class="btn-remove" onclick="removeQuestionFromBank('${q.question.replace(/'/g, "\\'")}')">
+                            ✓ 已掌握，删除
+                        </button>
+                    </div>
+                    <div class="wrong-question-text">${q.question}</div>
+                    <div class="wrong-question-answer">
+                        <p class="user-answer"><strong>你的错误答案：</strong>${q.userAnswer}</p>
+                        <p class="correct-answer"><strong>正确答案：</strong>${q.options.find(o => o.startsWith(q.answer))}</p>
+                    </div>
+                    <div class="wrong-question-explanation">
+                        <strong>解析：</strong>${q.explanation}
+                    </div>
+                `;
+                container.appendChild(questionDiv);
+            });
+        }
+
+        // 删除单个错题（全局函数供onclick调用）
+        window.removeQuestionFromBank = function(questionText) {
+            removeFromWrongBank(questionText);
+            showWrongBank();
+        };
     </script>
 </body>
 </html>
