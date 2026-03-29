@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公务员面试知识问答系统</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 开始页面 -->
+        <div id="startScreen" class="screen">
+            <div class="start-content">
+                <h1 class="title">🎯 公务员面试知识问答</h1>
+                <p class="subtitle">结构化面试题型模板 · 150+道精选题目库</p>
+                <div class="info-cards">
+                    <div class="info-card">
+                        <div class="icon">📝</div>
+                        <div class="text">
+                            <h3>题型覆盖</h3>
+                            <p>人际沟通、应急应变、组织管理、综合分析、自我认知</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="icon">💡</div>
+                        <div class="text">
+                            <h3>学习方式</h3>
+                            <p>答题即时反馈，加深知识点记忆</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="icon">🏆</div>
+                        <div class="text">
+                            <h3>挑战自我</h3>
+                            <p>记录答题进度，追踪学习成果</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 题目数量选择器 -->
+                <div class="question-count-selector">
+                    <h3 class="selector-title">选择题目数量</h3>
+                    <div class="count-options">
+                        <button class="count-option" data-count="10">10 题</button>
+                        <button class="count-option" data-count="20">20 题</button>
+                        <button class="count-option active" data-count="30">30 题</button>
+                        <button class="count-option" data-count="50">50 题</button>
+                        <button class="count-option" data-count="100">100 题</button>
+                    </div>
+                    <p class="selector-hint">将随机抽取 <span id="selectedCount">30</span> 道题目开始答题</p>
+                </div>
+                
+                <button id="startBtn" class="btn-primary">开始答题</button>
+            </div>
+        </div>
+
+        <!-- 答题页面 -->
+        <div id="quizScreen" class="screen hidden">
+            <div class="quiz-header">
+                <div class="progress-info">
+                    <span class="question-counter">题目 <span id="currentQuestion">1</span>/20</span>
+                    <div class="score-display">
+                        <span class="correct-score">✓ <span id="correctCount">0</span></span>
+                        <span class="wrong-score">✗ <span id="wrongCount">0</span></span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="question-container">
+                <h2 id="questionText" class="question-text"></h2>
+                <div id="optionsContainer" class="options-container"></div>
+            </div>
+
+            <!-- 反馈弹窗 -->
+            <div id="feedbackOverlay" class="feedback-overlay hidden">
+                <div id="feedbackContent" class="feedback-content">
+                    <div id="feedbackIcon" class="feedback-icon"></div>
+                    <h3 id="feedbackTitle" class="feedback-title"></h3>
+                    <p id="feedbackText" class="feedback-text"></p>
+                    <button id="nextBtn" class="btn-primary">下一题</button>
+                </div>
+            </div>
+
+            <!-- 庆祝动画容器 -->
+            <div id="celebrationContainer" class="celebration-container hidden"></div>
+        </div>
+
+        <!-- 结果页面 -->
+        <div id="resultScreen" class="screen hidden">
+            <div class="result-content">
+                <div id="resultIcon" class="result-icon"></div>
+                <h2 id="resultTitle" class="result-title"></h2>
+                <div class="score-summary">
+                    <div class="score-item correct">
+                        <span class="label">正确</span>
+                        <span id="finalCorrect" class="value">0</span>
+                    </div>
+                    <div class="score-item wrong">
+                        <span class="label">错误</span>
+                        <span id="finalWrong" class="value">0</span>
+                    </div>
+                    <div class="score-item total">
+                        <span class="label">正确率</span>
+                        <span id="accuracy" class="value">0%</span>
+                    </div>
+                </div>
+                <div class="result-message">
+                    <p id="resultMessage"></p>
+                </div>
+                <div class="result-actions">
+                    <button id="restartBtn" class="btn-primary">重新答题</button>
+                    <button id="reviewBtn" class="btn-secondary">查看错题</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错题回顾页面 -->
+        <div id="reviewScreen" class="screen hidden">
+            <div class="review-header">
+                <button id="backToResultBtn" class="btn-back">← 返回结果</button>
+                <h2>错题回顾</h2>
+            </div>
+            <div id="wrongQuestionsContainer" class="wrong-questions-container"></div>
+        </div>
+    </div>
+
+    <!-- 引入题目数据 -->
+    <script src="questions-data.js"></script>
+    
+    <script>
+        // 游戏状态
+        let selectedQuestionCount = 30; // 默认30题
+        let currentQuestionIndex = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let wrongQuestions = [];
+        let canAnswer = true;
+        let questions = []; // 当前答题使用的题目
+
+        // DOM 元素
+        const startScreen = document.getElementById('startScreen');
+        const quizScreen = document.getElementById('quizScreen');
+        const resultScreen = document.getElementById('resultScreen');
+        const reviewScreen = document.getElementById('reviewScreen');
+        const startBtn = document.getElementById('startBtn');
+        const questionText = document.getElementById('questionText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const currentQuestionSpan = document.getElementById('currentQuestion');
+        const correctCountSpan = document.getElementById('correctCount');
+        const wrongCountSpan = document.getElementById('wrongCount');
+        const progressFill = document.getElementById('progressFill');
+        const feedbackOverlay = document.getElementById('feedbackOverlay');
+        const feedbackIcon = document.getElementById('feedbackIcon');
+        const feedbackTitle = document.getElementById('feedbackTitle');
+        const feedbackText = document.getElementById('feedbackText');
+        const nextBtn = document.getElementById('nextBtn');
+        const celebrationContainer = document.getElementById('celebrationContainer');
+
+        // 题目数量选择器
+        const countOptions = document.querySelectorAll('.count-option');
+        const selectedCountSpan = document.getElementById('selectedCount');
+
+        countOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                countOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                selectedQuestionCount = parseInt(option.dataset.count);
+                selectedCountSpan.textContent = selectedQuestionCount;
+            });
+        });
+
+        // 随机抽取题目
+        function getRandomQuestions(count) {
+            const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, count);
+        }
+
+        // 开始游戏
+        startBtn.addEventListener('click', () => {
+            questions = getRandomQuestions(selectedQuestionCount);
+            currentQuestionIndex = 0;
+            correctCount = 0;
+            wrongCount = 0;
+            wrongQuestions = [];
+            correctCountSpan.textContent = '0';
+            wrongCountSpan.textContent = '0';
+            
+            startScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            loadQuestion();
+        });
+
+        // 加载题目
+        function loadQuestion() {
+            canAnswer = true;
+            const question = questions[currentQuestionIndex];
+            questionText.textContent = question.question;
+            currentQuestionSpan.textContent = currentQuestionIndex + 1;
+            
+            // 更新进度条显示
+            document.querySelector('.question-counter').innerHTML = 
+                `题目 <span id="currentQuestion">${currentQuestionIndex + 1}</span>/${questions.length}`;
+            
+            progressFill.style.width = `${((currentQuestionIndex) / questions.length) * 100}%`;
+
+            optionsContainer.innerHTML = '';
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = option;
+                optionDiv.addEventListener('click', () => selectOption(index, optionDiv));
+                optionsContainer.appendChild(optionDiv);
+            });
+        }
+
+        // 选择答案
+        function selectOption(index, element) {
+            if (!canAnswer) return;
+            canAnswer = false;
+
+            const question = questions[currentQuestionIndex];
+            const selectedAnswer = question.options[index];
+            const correctAnswer = question.answer;
+            const isCorrect = selectedAnswer.startsWith(correctAnswer);
+
+            // 禁用所有选项
+            const allOptions = optionsContainer.querySelectorAll('.option');
+            allOptions.forEach(opt => opt.classList.add('disabled'));
+
+            // 标记正确和错误答案
+            element.classList.add(isCorrect ? 'correct' : 'wrong');
+            if (!isCorrect) {
+                allOptions.forEach(opt => {
+                    if (opt.textContent.startsWith(correctAnswer)) {
+                        opt.classList.add('correct');
+                    }
+                });
+            }
+
+            // 更新分数
+            if (isCorrect) {
+                correctCount++;
+                correctCountSpan.textContent = correctCount;
+                showCorrectFeedback(question.explanation);
+            } else {
+                wrongCount++;
+                wrongCountSpan.textContent = wrongCount;
+                wrongQuestions.push({
+                    ...question,
+                    userAnswer: selectedAnswer
+                });
+                showWrongFeedback(question, selectedAnswer);
+            }
+        }
+
+        // 显示正确反馈
+        function showCorrectFeedback(explanation) {
+            feedbackIcon.innerHTML = '🎉';
+            feedbackIcon.className = 'feedback-icon correct-icon';
+            feedbackTitle.textContent = '回答正确！';
+            feedbackText.textContent = explanation;
+            feedbackOverlay.classList.remove('hidden');
+
+            // 显示庆祝动画
+            showCelebration();
+        }
+
+        // 显示错误反馈
+        function showWrongFeedback(question, userAnswer) {
+            feedbackIcon.innerHTML = '😢';
+            feedbackIcon.className = 'feedback-icon wrong-icon';
+            feedbackTitle.textContent = '回答错误';
+            feedbackText.innerHTML = `
+                <div class="wrong-feedback">
+                    <p><strong>你的答案：</strong>${userAnswer}</p>
+                    <p><strong>正确答案：</strong>${question.options.find(o => o.startsWith(question.answer))}</p>
+                    <p><strong>解析：</strong>${question.explanation}</p>
+                </div>
+            `;
+            feedbackOverlay.classList.remove('hidden');
+        }
+
+        // 庆祝动画
+        function showCelebration() {
+            celebrationContainer.classList.remove('hidden');
+            celebrationContainer.innerHTML = '';
+
+            // 创建彩带
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                confetti.style.backgroundColor = getRandomColor();
+                celebrationContainer.appendChild(confetti);
+            }
+
+            // 创建烟花
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    createFirework();
+                }, i * 200);
+            }
+
+            // 3秒后清除
+            setTimeout(() => {
+                celebrationContainer.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 创建烟花
+        function createFirework() {
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            firework.style.left = Math.random() * 80 + 10 + '%';
+            firework.style.top = Math.random() * 60 + 20 + '%';
+            celebrationContainer.appendChild(firework);
+
+            setTimeout(() => {
+                firework.remove();
+            }, 1000);
+        }
+
+        // 随机颜色
+        function getRandomColor() {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe', '#fd79a8', '#00b894'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // 下一题
+        nextBtn.addEventListener('click', () => {
+            feedbackOverlay.classList.add('hidden');
+            currentQuestionIndex++;
+
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        });
+
+        // 显示结果
+        function showResults() {
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+
+            const accuracy = Math.round((correctCount / questions.length) * 100);
+            document.getElementById('finalCorrect').textContent = correctCount;
+            document.getElementById('finalWrong').textContent = wrongCount;
+            document.getElementById('accuracy').textContent = accuracy + '%';
+
+            const resultIcon = document.getElementById('resultIcon');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultMessage = document.getElementById('resultMessage');
+
+            if (accuracy >= 90) {
+                resultIcon.innerHTML = '🏆';
+                resultTitle.textContent = '优秀！';
+                resultMessage.textContent = '你对面试知识掌握得非常扎实，继续保持！';
+            } else if (accuracy >= 70) {
+                resultIcon.innerHTML = '👍';
+                resultTitle.textContent = '良好！';
+                resultMessage.textContent = '你对大部分知识点已有较好理解，再接再厉！';
+            } else if (accuracy >= 60) {
+                resultIcon.innerHTML = '💪';
+                resultTitle.textContent = '及格';
+                resultMessage.textContent = '基础知识已有掌握，建议多复习错题部分。';
+            } else {
+                resultIcon.innerHTML = '📚';
+                resultTitle.textContent = '需要努力';
+                resultMessage.textContent = '建议重新学习知识点，多做练习巩固记忆。';
+            }
+
+            // 如果有错题，显示查看错题按钮
+            const reviewBtn = document.getElementById('reviewBtn');
+            if (wrongQuestions.length > 0) {
+                reviewBtn.style.display = 'inline-block';
+            } else {
+                reviewBtn.style.display = 'none';
+            }
+        }
+
+        // 重新开始 - 返回开始页面
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            resultScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        });
+
+        // 查看错题
+        document.getElementById('reviewBtn').addEventListener('click', () => {
+            resultScreen.classList.add('hidden');
+            reviewScreen.classList.remove('hidden');
+            showWrongQuestions();
+        });
+
+        // 返回结果页
+        document.getElementById('backToResultBtn').addEventListener('click', () => {
+            reviewScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+        });
+
+        // 显示错题
+        function showWrongQuestions() {
+            const container = document.getElementById('wrongQuestionsContainer');
+            container.innerHTML = '';
+
+            wrongQuestions.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'wrong-question-item';
+                questionDiv.innerHTML = `
+                    <div class="wrong-question-header">
+                        <span class="question-number">第 ${index + 1} 题</span>
+                    </div>
+                    <div class="wrong-question-text">${q.question}</div>
+                    <div class="wrong-question-answer">
+                        <p class="user-answer"><strong>你的答案：</strong>${q.userAnswer}</p>
+                        <p class="correct-answer"><strong>正确答案：</strong>${q.options.find(o => o.startsWith(q.answer))}</p>
+                    </div>
+                    <div class="wrong-question-explanation">
+                        <strong>解析：</strong>${q.explanation}
+                    </div>
+                `;
+                container.appendChild(questionDiv);
+            });
+        }
+    </script>
+</body>
+</html>
