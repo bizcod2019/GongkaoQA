@@ -434,6 +434,50 @@
             checkSavedState();
         });
 
+        // Fisher-Yates 洗牌算法
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // 打乱题目选项并返回新的选项数组和正确答案索引
+        function shuffleOptions(question) {
+            // 提取选项内容（去掉A. B. C. D.前缀）
+            const optionContents = question.options.map(opt => {
+                return opt.replace(/^[A-D]\.\s*/, '');
+            });
+            
+            // 找到正确答案的内容
+            const correctContent = question.options
+                .find(opt => opt.startsWith(question.answer))
+                .replace(/^[A-D]\.\s*/, '');
+            
+            // 打乱选项
+            const shuffledContents = shuffleArray(optionContents);
+            
+            // 生成新的选项（带新前缀）
+            const labels = ['A', 'B', 'C', 'D'];
+            const shuffledOptions = shuffledContents.map((content, index) => {
+                return `${labels[index]}. ${content}`;
+            });
+            
+            // 找到正确答案的新位置
+            const correctIndex = shuffledContents.findIndex(c => c === correctContent);
+            
+            return {
+                options: shuffledOptions,
+                correctIndex: correctIndex,
+                correctAnswer: labels[correctIndex]
+            };
+        }
+
+        // 当前题目的打乱后信息
+        let currentShuffledInfo = null;
+
         // 加载题目
         function loadQuestion() {
             canAnswer = true;
@@ -447,8 +491,11 @@
             
             progressFill.style.width = `${((currentQuestionIndex) / questions.length) * 100}%`;
 
+            // 打乱选项
+            currentShuffledInfo = shuffleOptions(question);
+
             optionsContainer.innerHTML = '';
-            question.options.forEach((option, index) => {
+            currentShuffledInfo.options.forEach((option, index) => {
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'option';
                 optionDiv.textContent = option;
@@ -463,9 +510,9 @@
             canAnswer = false;
 
             const question = questions[currentQuestionIndex];
-            const selectedAnswer = question.options[index];
-            const correctAnswer = question.answer;
-            const isCorrect = selectedAnswer.startsWith(correctAnswer);
+            const selectedIndex = index;
+            const correctIndex = currentShuffledInfo.correctIndex;
+            const isCorrect = selectedIndex === correctIndex;
 
             // 禁用所有选项
             const allOptions = optionsContainer.querySelectorAll('.option');
@@ -474,11 +521,8 @@
             // 标记正确和错误答案
             element.classList.add(isCorrect ? 'correct' : 'wrong');
             if (!isCorrect) {
-                allOptions.forEach(opt => {
-                    if (opt.textContent.startsWith(correctAnswer)) {
-                        opt.classList.add('correct');
-                    }
-                });
+                // 标记正确答案
+                allOptions[correctIndex].classList.add('correct');
             }
 
             // 更新分数
@@ -491,13 +535,14 @@
             } else {
                 wrongCount++;
                 wrongCountSpan.textContent = wrongCount;
+                const userAnswer = currentShuffledInfo.options[selectedIndex];
                 wrongQuestions.push({
                     ...question,
-                    userAnswer: selectedAnswer
+                    userAnswer: userAnswer
                 });
                 // 添加到错题库
-                addToWrongBank(question, selectedAnswer);
-                showWrongFeedback(question, selectedAnswer);
+                addToWrongBank(question, userAnswer);
+                showWrongFeedback(question, userAnswer, currentShuffledInfo.options[correctIndex]);
             }
             
             // 自动保存状态
@@ -517,14 +562,14 @@
         }
 
         // 显示错误反馈
-        function showWrongFeedback(question, userAnswer) {
+        function showWrongFeedback(question, userAnswer, correctAnswer) {
             feedbackIcon.innerHTML = '😢';
             feedbackIcon.className = 'feedback-icon wrong-icon';
             feedbackTitle.textContent = '回答错误';
             feedbackText.innerHTML = `
                 <div class="wrong-feedback">
                     <p><strong>你的答案：</strong>${userAnswer}</p>
-                    <p><strong>正确答案：</strong>${question.options.find(o => o.startsWith(question.answer))}</p>
+                    <p><strong>正确答案：</strong>${correctAnswer}</p>
                     <p><strong>解析：</strong>${question.explanation}</p>
                 </div>
             `;
@@ -665,6 +710,11 @@
             container.innerHTML = '';
 
             wrongQuestions.forEach((q, index) => {
+                // 获取正确答案的内容（去掉字母前缀）
+                const correctAnswerContent = q.options
+                    .find(o => o.startsWith(q.answer))
+                    .replace(/^[A-D]\.\s*/, '');
+                
                 const questionDiv = document.createElement('div');
                 questionDiv.className = 'wrong-question-item';
                 questionDiv.innerHTML = `
@@ -674,7 +724,7 @@
                     <div class="wrong-question-text">${q.question}</div>
                     <div class="wrong-question-answer">
                         <p class="user-answer"><strong>你的答案：</strong>${q.userAnswer}</p>
-                        <p class="correct-answer"><strong>正确答案：</strong>${q.options.find(o => o.startsWith(q.answer))}</p>
+                        <p class="correct-answer"><strong>正确答案：</strong>${correctAnswerContent}</p>
                     </div>
                     <div class="wrong-question-explanation">
                         <strong>解析：</strong>${q.explanation}
@@ -728,6 +778,17 @@
 
             container.innerHTML = '';
             bank.forEach((q, index) => {
+                // 获取正确答案的内容（去掉字母前缀）
+                const correctAnswerContent = q.options
+                    .find(o => o.startsWith(q.answer))
+                    .replace(/^[A-D]\.\s*/, '');
+                
+                // 获取用户答案内容
+                let userAnswerContent = q.userAnswer;
+                if (userAnswerContent && userAnswerContent.match(/^[A-D]\.\s/)) {
+                    userAnswerContent = userAnswerContent.replace(/^[A-D]\.\s*/, '');
+                }
+                
                 const questionDiv = document.createElement('div');
                 questionDiv.className = 'wrong-question-item wrong-bank-item';
                 questionDiv.innerHTML = `
@@ -739,8 +800,8 @@
                     </div>
                     <div class="wrong-question-text">${q.question}</div>
                     <div class="wrong-question-answer">
-                        <p class="user-answer"><strong>你的错误答案：</strong>${q.userAnswer}</p>
-                        <p class="correct-answer"><strong>正确答案：</strong>${q.options.find(o => o.startsWith(q.answer))}</p>
+                        <p class="user-answer"><strong>你的错误答案：</strong>${userAnswerContent}</p>
+                        <p class="correct-answer"><strong>正确答案：</strong>${correctAnswerContent}</p>
                     </div>
                     <div class="wrong-question-explanation">
                         <strong>解析：</strong>${q.explanation}
